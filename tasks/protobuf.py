@@ -24,6 +24,7 @@ PROTO_PKGS = {
     'autodiscovery': False,
     'trace/idx': False,
     'workloadfilter': False,
+    'sbom': False,
 }
 
 CLI_EXTRAS = {
