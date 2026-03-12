@@ -29,6 +29,7 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/util/startstop"
 )
 
+
 const (
 	// maxConcurrencyPerPipeline is used to determine the maxSenderConcurrency value for the default provider creation logic.
 	// We don't want to require users to know enough about our underlying architecture to understand what this value is meant
@@ -62,7 +63,7 @@ type provider struct {
 	endpoints                 *config.Endpoints
 	sender                    sender.PipelineComponent
 
-	pipelines            []*Pipeline
+	pipelines            []pipelineEntry
 	currentPipelineIndex *atomic.Uint32
 	serverlessMeta       sender.ServerlessMeta
 
@@ -92,6 +93,10 @@ func NewProvider(
 	if endpoints.UseGRPC {
 		senderImpl = grpcsender.NewSender(numberOfPipelines, cfg, sink, endpoints, destinationsContext, compression)
 	} else if endpoints.UseHTTP {
+		if _, ok := firstGRPCAdditionalEndpoint(endpoints); ok {
+			endpoints.Main.ExtraHeaders = map[string]string{"dd-shadow-ingest": "true"}
+			endpoints.Endpoints[0].ExtraHeaders = map[string]string{"dd-shadow-ingest": "true"}
+		}
 		senderImpl = httpSender(numberOfPipelines, cfg, sink, endpoints, destinationsContext, serverlessMeta, legacyMode)
 	} else {
 		senderImpl = tcpSender(numberOfPipelines, cfg, sink, endpoints, destinationsContext, status, serverlessMeta, legacyMode)
@@ -221,7 +226,7 @@ func newProvider(
 		processingRules:           processingRules,
 		endpoints:                 endpoints,
 		sender:                    senderImpl,
-		pipelines:                 []*Pipeline{},
+		pipelines:                 []pipelineEntry{},
 		currentPipelineIndex:      atomic.NewUint32(0),
 		serverlessMeta:            serverlessMeta,
 		hostname:                  hostname,
@@ -235,19 +240,10 @@ func (p *provider) Start() {
 	p.sender.Start()
 
 	for i := 0; i < p.numberOfPipelines; i++ {
-		pipeline := NewPipeline(
-			p.processingRules,
-			p.endpoints,
-			p.sender,
-			p.diagnosticMessageReceiver,
-			p.serverlessMeta,
-			p.hostname,
-			p.cfg,
-			p.compression,
-			strconv.Itoa(i),
-		)
-		pipeline.Start()
-		p.pipelines = append(p.pipelines, pipeline)
+		instanceID := strconv.Itoa(i)
+		entry := NewPipeline(p.processingRules, p.endpoints, p.sender, p.diagnosticMessageReceiver, p.serverlessMeta, p.hostname, p.cfg, p.compression, instanceID)
+		entry.Start()
+		p.pipelines = append(p.pipelines, entry)
 	}
 }
 
@@ -256,9 +252,8 @@ func (p *provider) Start() {
 func (p *provider) Stop() {
 	stopper := startstop.NewParallelStopper()
 
-	// close the pipelines
-	for _, pipeline := range p.pipelines {
-		stopper.Add(pipeline)
+	for _, entry := range p.pipelines {
+		stopper.Add(entry)
 	}
 
 	stopper.Stop()
@@ -273,8 +268,7 @@ func (p *provider) NextPipelineChan() chan *message.Message {
 		return nil
 	}
 	index := p.currentPipelineIndex.Inc() % uint32(pipelinesLen)
-	nextPipeline := p.pipelines[index]
-	return nextPipeline.InputChan
+	return p.pipelines[index].GetInputChan()
 }
 
 func (p *provider) GetOutputChan() chan *message.Message {
@@ -288,18 +282,18 @@ func (p *provider) NextPipelineChanWithMonitor() (chan *message.Message, *metric
 		return nil, nil
 	}
 	index := p.currentPipelineIndex.Inc() % uint32(pipelinesLen)
-	nextPipeline := p.pipelines[index]
-	return nextPipeline.InputChan, nextPipeline.pipelineMonitor.GetCapacityMonitor(metrics.ProcessorTlmName, strconv.Itoa(int(index)))
+	entry := p.pipelines[index]
+	return entry.GetInputChan(), entry.GetPipelineMonitor().GetCapacityMonitor(metrics.ProcessorTlmName, strconv.Itoa(int(index)))
 }
 
 // Flush flushes synchronously all the contained pipeline of this provider.
 func (p *provider) Flush(ctx context.Context) {
-	for _, p := range p.pipelines {
+	for _, entry := range p.pipelines {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			p.Flush(ctx)
+			entry.Flush(ctx)
 		}
 	}
 	if p.serverlessMeta.IsEnabled() {

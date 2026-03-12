@@ -65,6 +65,7 @@ type Endpoint struct {
 	CompressionLevel        int    `mapstructure:"compression_level" json:"compression_level"`
 	ProxyAddress            string
 	IsMRF                   bool `mapstructure:"-" json:"-"`
+	UseGRPC                 bool `mapstructure:"use_grpc" json:"use_grpc"`
 	ConnectionResetInterval time.Duration
 
 	BackoffFactor    float64
@@ -77,6 +78,9 @@ type Endpoint struct {
 	TrackType IntakeTrackType
 	Protocol  IntakeProtocol
 	Origin    IntakeOrigin
+
+	// ExtraHeaders are additional HTTP/gRPC headers to include with every request to this endpoint.
+	ExtraHeaders map[string]string
 }
 
 // unmarshalEndpoint is used to load additional endpoints from the configuration which stored as JSON/mapstructure.
@@ -212,6 +216,7 @@ func loadHTTPAdditionalEndpoints(main Endpoint, l *LogsConfigKeys, intakeTrackTy
 		newE.TrackType = e.TrackType
 		newE.Protocol = e.Protocol
 		newE.Origin = e.Origin
+		newE.UseGRPC = e.UseGRPC
 
 		if e.UseSSL != nil {
 			newE.useSSL = *e.UseSSL

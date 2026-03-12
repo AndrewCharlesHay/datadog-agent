@@ -356,6 +356,9 @@ func (d *Destination) unconditionalSend(payload *message.Payload) (err error) {
 		req.Header.Set("DD-EVP-ORIGIN", string(d.origin))
 		req.Header.Set("DD-EVP-ORIGIN-VERSION", version.AgentVersion)
 	}
+	for k, v := range d.endpoint.ExtraHeaders {
+		req.Header.Set(k, v)
+	}
 	req.Header.Set("dd-message-timestamp", strconv.FormatInt(getMessageTimestamp(payload.MessageMetas), 10))
 	then := time.Now()
 	req.Header.Set("dd-current-timestamp", strconv.FormatInt(then.UnixMilli(), 10))

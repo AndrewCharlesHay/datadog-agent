@@ -405,7 +405,8 @@ func buildHTTPEndpoints(coreConfig pkgconfigmodel.Reader, logsConfig *LogsConfig
 	batchMaxContentSize := logsConfig.batchMaxContentSize()
 	inputChanSize := logsConfig.inputChanSize()
 
-	return NewEndpointsWithBatchSettings(main, additionals, false, true, logsConfig.isGRPCUse(), batchWait, batchMaxConcurrentSend, batchMaxSize, batchMaxContentSize, inputChanSize), nil
+	useHTTP := !logsConfig.isGRPCUse()
+	return NewEndpointsWithBatchSettings(main, additionals, false, useHTTP, logsConfig.isGRPCUse(), batchWait, batchMaxConcurrentSend, batchMaxSize, batchMaxContentSize, inputChanSize), nil
 }
 
 type defaultParseAddressFunc func(string) (host string, port int, err error)
