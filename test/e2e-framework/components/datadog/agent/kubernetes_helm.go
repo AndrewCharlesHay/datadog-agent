@@ -732,6 +732,9 @@ func BuildOpenShiftHelmValues() HelmValues {
 				"originDetection": pulumi.Bool(true),
 				"tagCardinality":  pulumi.String("high"),
 			},
+			"privateActionRunner": pulumi.Map{
+				"enabled": pulumi.BoolPtr(false),
+			},
 		},
 		"agents": pulumi.Map{
 			"enabled": pulumi.Bool(true),
@@ -786,6 +789,9 @@ func BuildOpenShiftHelmValues() HelmValues {
 			},
 		},
 		"clusterAgent": pulumi.Map{
+			"privateActionRunner": pulumi.Map{
+				"enabled": pulumi.BoolPtr(false),
+			},
 			"resources": pulumi.StringMapMap{
 				"limits": pulumi.StringMap{
 					"cpu":    pulumi.String("300m"),
