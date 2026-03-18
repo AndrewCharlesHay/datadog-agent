@@ -17,7 +17,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/DataDog/datadog-agent/comp/host-profiler/collector/impl/params"
 	"github.com/DataDog/datadog-agent/comp/host-profiler/version"
 	configutils "github.com/DataDog/datadog-agent/pkg/config/utils"
 	"go.opentelemetry.io/collector/confmap"
@@ -25,10 +24,8 @@ import (
 )
 
 // NewFactoryWithoutAgent returns a new converterWithoutAgent factory.
-func NewFactoryWithoutAgent(p params.CollectorParams) confmap.ConverterFactory {
-	return confmap.NewConverterFactory(func(convSettings confmap.ConverterSettings) confmap.Converter {
-		return newConverterWithoutAgent(convSettings, p)
-	})
+func NewFactoryWithoutAgent() confmap.ConverterFactory {
+	return confmap.NewConverterFactory(newConverterWithoutAgent)
 }
 
 type confMap = map[string]any
@@ -52,9 +49,10 @@ const (
 
 // Reserved component names for internal metrics pipeline
 const (
-	reservedPrometheusReceiver        = "prometheus/dd-hp-internal"
-	reservedFilterProcessor           = "filter/dd-hp-drop-internal"
-	internalHealthMetricsPipelineName = "metrics/profiler-internal-health"
+	reservedPrometheusReceiver            = "prometheus/dd-hp-internal"
+	reservedFilterProcessor               = "filter/dd-hp-drop-internal"
+	reservedCumulativeToDeltaProcessor    = "cumulativetodelta/dd-hp-internal"
+	internalHealthMetricsPipelineName     = "metrics/profiler-internal-health"
 )
 
 // Configuration paths used multiple times across converters

@@ -16,7 +16,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/DataDog/datadog-agent/comp/host-profiler/collector/impl/params"
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/confmap/xconfmap"
 	"go.uber.org/zap/exp/zapslog"
@@ -49,14 +48,12 @@ var resourceDetectionDefaultConfig = confMap{
 //   - If hostprofiler::symbol_uploader::enabled == true, convert api_key/app_key to strings in each endpoint
 //   - If no hostprofiler is used & configured, add minimal one with symbol_uploader: false
 //   - remove ddprofiling & hpflare extensions
-type converterWithoutAgent struct {
-	params params.CollectorParams
-}
+type converterWithoutAgent struct{}
 
-func newConverterWithoutAgent(convSettings confmap.ConverterSettings, p params.CollectorParams) confmap.Converter {
+func newConverterWithoutAgent(convSettings confmap.ConverterSettings) confmap.Converter {
 	logger := convSettings.Logger
 	slog.SetDefault(slog.New(zapslog.NewHandler(logger.Core())))
-	return &converterWithoutAgent{params: p}
+	return &converterWithoutAgent{}
 }
 
 func (c *converterWithoutAgent) Convert(_ context.Context, conf *confmap.Conf) error {
@@ -133,7 +130,7 @@ func (c *converterWithoutAgent) Convert(_ context.Context, conf *confmap.Conf) e
 		return err
 	}
 	if err := c.addInternalHealthMetricsPipeline(confStringMap, updatedExporterNames); err != nil {
-		return err
+		slog.Warn("failed to configure pipeline, skipping", slog.Any("error", err))
 	}
 
 	*conf = *confmap.NewFromStringMap(confStringMap)
@@ -429,27 +426,19 @@ func (c *converterWithoutAgent) addInternalHealthMetricsPipeline(conf confMap, p
 	// Check for reserved component name conflicts
 	if receivers, ok := Get[confMap](conf, "receivers"); ok {
 		if _, exists := receivers[reservedPrometheusReceiver]; exists {
-			slog.Warn("receiver name conflicts with reserved name, skipping metrics pipeline",
+			slog.Warn("receiver name conflicts with reserved name, skipping pipeline",
 				slog.String("receiver", reservedPrometheusReceiver))
 			return nil
 		}
 	}
 	if processors, ok := Get[confMap](conf, "processors"); ok {
-		if _, exists := processors[reservedFilterProcessor]; exists {
-			slog.Warn("processor name conflicts with reserved name, skipping metrics pipeline",
-				slog.String("processor", reservedFilterProcessor))
-			return nil
+		for _, reserved := range []string{reservedFilterProcessor, reservedCumulativeToDeltaProcessor} {
+			if _, exists := processors[reserved]; exists {
+				slog.Warn("processor name conflicts with reserved name, skipping pipeline",
+					slog.String("processor", reserved))
+				return nil
+			}
 		}
-	}
-
-	// Add prometheus receiver
-	if err := Set(conf, pathPrefixReceivers+reservedPrometheusReceiver, PrometheusReceiverConfig()); err != nil {
-		return fmt.Errorf("failed to add prometheus receiver: %w", err)
-	}
-
-	// Add filter processor
-	if err := Set(conf, pathPrefixProcessors+reservedFilterProcessor, FilterProcessorConfig()); err != nil {
-		return fmt.Errorf("failed to add filter processor: %w", err)
 	}
 
 	// Collect metrics exporters (same as profiles exporters)
@@ -510,27 +499,37 @@ func (c *converterWithoutAgent) addInternalHealthMetricsPipeline(conf confMap, p
 	}
 
 	if len(metricsExporterNames) == 0 {
-		slog.Info("no exporters configured for metrics, skipping metrics pipeline")
+		slog.Info("no exporters configured, skipping metrics pipeline")
 		return nil
 	}
 
-	// Build metrics pipeline (uses resourcedetection instead of infraattributes)
-	metricsPipelineReceivers := []any{reservedPrometheusReceiver}
-	if c.params.GetGoRuntimeMetrics() {
-		metricsPipelineReceivers = append(metricsPipelineReceivers, "otlp")
+	// Add prometheus receiver
+	if err := Set(conf, pathPrefixReceivers+reservedPrometheusReceiver, PrometheusReceiverConfig()); err != nil {
+		return fmt.Errorf("failed to add prometheus receiver: %w", err)
 	}
+
+	// Add filter and cumulativetodelta processors
+	if err := Set(conf, pathPrefixProcessors+reservedFilterProcessor, FilterProcessorConfig()); err != nil {
+		return fmt.Errorf("failed to add filter processor: %w", err)
+	}
+	if err := Set(conf, pathPrefixProcessors+reservedCumulativeToDeltaProcessor, confMap{}); err != nil {
+		return fmt.Errorf("failed to add cumulativetodelta processor: %w", err)
+	}
+
+	// Build metrics pipeline (uses resourcedetection instead of infraattributes)
 	metricsPipeline := confMap{
-		"receivers": metricsPipelineReceivers,
+		"receivers": []any{reservedPrometheusReceiver},
 		"processors": []any{
 			reservedFilterProcessor,
-			defaultResourceDetectionName, // Use resourcedetection for standalone mode
+			reservedCumulativeToDeltaProcessor,
+			defaultResourceDetectionName,           // Use resourcedetection for standalone mode
 			"resource/dd-profiler-internal-metadata", // Reuse from profiles pipeline
 		},
 		"exporters": metricsExporterNames,
 	}
 
 	if err := Set(conf, "service::pipelines::"+internalHealthMetricsPipelineName, metricsPipeline); err != nil {
-		return fmt.Errorf("failed to create metrics pipeline: %w", err)
+		return fmt.Errorf("failed to create pipeline: %w", err)
 	}
 
 	slog.Info("created internal health metrics pipeline",
