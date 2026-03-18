@@ -126,7 +126,7 @@ func (cr *contextResolver) trackContext(metricSampleContext metrics.MetricSample
 		keysSet    bool
 	)
 
-	if metricSampleContext.GetMetricType() == metrics.DistributionType {
+	if filterList != nil && metricSampleContext.GetMetricType() == metrics.DistributionType {
 		if tagMatcher, strip := filterList.ShouldStripTags(metricSampleContext.GetName()); strip {
 			// Generate a pre-strip context key to use as the cache lookup key.
 			// generateContextKey sorts and deduplicates the buffers in place.
