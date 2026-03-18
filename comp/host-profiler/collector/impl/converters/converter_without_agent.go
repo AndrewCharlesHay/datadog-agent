@@ -129,7 +129,7 @@ func (c *converterWithoutAgent) Convert(_ context.Context, conf *confmap.Conf) e
 	if err != nil {
 		return err
 	}
-	if err := c.addInternalHealthMetricsPipeline(confStringMap, updatedExporterNames); err != nil {
+	if err := c.addInternalHealthMetricsPipeline(confStringMap, updatedExporterNames, newProcessorNames); err != nil {
 		slog.Warn("failed to configure pipeline, skipping", slog.Any("error", err))
 	}
 
@@ -404,7 +404,7 @@ func (c *converterWithoutAgent) removeAgentOnlyExtensions(conf confMap) error {
 
 // addInternalHealthMetricsPipeline scrapes OTel collector internal telemetry and exports it
 // to the same orgs as profiles. Separate from ensureMetricsPipeline which handles user-defined pipelines.
-func (c *converterWithoutAgent) addInternalHealthMetricsPipeline(conf confMap, profilesExporterNames []any) error {
+func (c *converterWithoutAgent) addInternalHealthMetricsPipeline(conf confMap, profilesExporterNames []any, profilesProcessors []any) error {
 	if existing, ok := Get[confMap](conf, "service::pipelines::"+internalHealthMetricsPipelineName); ok {
 		slog.Warn("metrics/profiler-internal-health pipeline already configured, skipping auto-configuration",
 			slog.Any("existing_config", existing))
@@ -502,15 +502,13 @@ func (c *converterWithoutAgent) addInternalHealthMetricsPipeline(conf confMap, p
 		return fmt.Errorf("failed to add cumulativetodelta processor: %w", err)
 	}
 
+	metricsProcessors := []any{reservedFilterProcessor, reservedCumulativeToDeltaProcessor}
+	metricsProcessors = append(metricsProcessors, profilesProcessors...)
+
 	metricsPipeline := confMap{
-		"receivers": []any{reservedPrometheusReceiver},
-		"processors": []any{
-			reservedFilterProcessor,
-			reservedCumulativeToDeltaProcessor,
-			defaultResourceDetectionName,            // resourcedetection instead of infraattributes
-			"resource/dd-profiler-internal-metadata",
-		},
-		"exporters": metricsExporterNames,
+		"receivers":  []any{reservedPrometheusReceiver},
+		"processors": metricsProcessors,
+		"exporters":  metricsExporterNames,
 	}
 
 	if err := Set(conf, "service::pipelines::"+internalHealthMetricsPipelineName, metricsPipeline); err != nil {
