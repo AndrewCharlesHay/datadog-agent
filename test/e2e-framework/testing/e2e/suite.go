@@ -281,16 +281,27 @@ func (bs *BaseSuite[Env]) CleanupOnSetupFailure() {
 
 		// run environment diagnose
 		if bs.env != nil {
-			if diagnosableEnv, ok := any(bs.env).(common.Diagnosable); ok && diagnosableEnv != nil {
-				// at least one test failed, diagnose the environment
-				diagnose, diagnoseErr := diagnosableEnv.Diagnose(bs.SessionOutputDir())
-				if diagnoseErr != nil {
-					utils.Logf(bs.T(), "unable to diagnose environment: %v", diagnoseErr)
+			diagnosableEnv, ok := any(bs.env).(common.Diagnosable)
+			if ok {
+				if diagnosableEnv != nil {
+					// at least one test failed, diagnose the environment
+					diagnose, diagnoseErr := diagnosableEnv.Diagnose(bs.SessionOutputDir())
+					if diagnoseErr != nil {
+						utils.Logf(bs.T(), "unable to diagnose environment: %v", diagnoseErr)
+					} else {
+						utils.Logf(bs.T(), "Diagnose result:\n\n%s", diagnose)
+					}
 				} else {
-					utils.Logf(bs.T(), "Diagnose result:\n\n%s", diagnose)
+					bs.T().Logf("the diagnose env object for test %s is nil....", bs.T().Name())
 				}
+			} else {
+				bs.T().Logf("the base suite env for test %s does not follow the `Diagnosable` interface", bs.T().Name())
 			}
+		} else {
+			bs.T().Logf("the base suite for test %s has not env, can't search for `Diagnose()` method", bs.T().Name())
 		}
+	} else {
+		bs.T().Logf("caught error: %+v -- test failed ? %t", err, bs.T().Failed())
 	}
 }
 
