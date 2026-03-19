@@ -43,11 +43,11 @@ generator:
             set: 0
             histogram: 0
           metric_names:
-            - metricname_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa{{3-4}}{{8-9}}{{8-9}}
+            - metricname_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa{{0-499}}
           tag_names:
-            - tagname_aaaaaaaaaaaaaaaaaaaaaa_{{5-9}}{{0-9}}
+            - tagname_aaaaaaaaaaaaaaaaaaaaaa_{{0-54}}
           tag_values:
-            - value{{0-1}}
+            - value{{0-9}}
 
 target_metrics:
   - prometheus: #core agent telemetry
