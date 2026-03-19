@@ -280,7 +280,7 @@ func (bs *BaseSuite[Env]) CleanupOnSetupFailure() {
 		}()
 
 		// run environment diagnose
-		if bs.env != nil {
+		if bs.Env() != nil {
 			diagnosableEnv, ok := any(bs.env).(common.Diagnosable)
 			if ok {
 				if diagnosableEnv != nil {
@@ -445,7 +445,7 @@ func (bs *BaseSuite[Env]) reconcileEnv(targetProvisioners provisioners.Provision
 					diagnoseResult, diagnoseErr := diagnosableProvisioner.Diagnose(ctx, stackName)
 					if diagnoseErr != nil {
 						utils.Logf(bs.T(), "WARNING: Diagnose failed: %v", diagnoseErr)
-					} else if diagnoseResult != "" {
+					} else {
 						utils.Logf(bs.T(), "Diagnose result: %s", diagnoseResult)
 					}
 				}
