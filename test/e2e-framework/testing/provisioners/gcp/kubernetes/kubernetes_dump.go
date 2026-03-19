@@ -3,8 +3,10 @@ package gcpkubernetes
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
+
+	gcpapi "cloud.google.com/go/compute/apiv1"
+	"cloud.google.com/go/compute/apiv1/computepb"
 )
 
 func DumpOpenshiftClusterState(ctx context.Context, name string) (ret string, err error) {
@@ -15,23 +17,19 @@ func DumpOpenshiftClusterState(ctx context.Context, name string) (ret string, er
 
 	fmt.Fprintf(&out, "stack name: '%s'\n", name)
 
-	args := []string{
-		"--project", "'datadog-agent-sandbox'",
-		"compute",
-		"instances",
-		"list",
-		"--filter='labels.team=agent-contint AND labels.managed-by=pulumi AND labels.username=alexandre-lavigne'",
+	gcpClient, err := gcpapi.NewInstancesRESTClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to init GCP instance client: %w", err)
 	}
 
-	cmd := exec.Command("gcloud", args...)
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(&out, "failed to get instances list: %s\n", err.Error())
-	} else {
-		cmdOut, cmdErr := cmd.CombinedOutput()
-		fmt.Fprintf(&out, "output:\n%s\nerrors:\n%s", string(cmdOut), cmdErr.Error())
-	}
+	instanceFilter := "labels.managed-by=pulumi AND labels.stack=" + name
+	instanceIterator := gcpClient.List(ctx, &computepb.ListInstancesRequest{
+		Filter: &instanceFilter,
+	}).All()
 
-	
+	for instance, _ := range instanceIterator {
+		fmt.Fprintf(&out, "instance: %+v\n", instance)
+	}
 
 	return
 }
