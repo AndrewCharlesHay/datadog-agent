@@ -49,10 +49,10 @@ const (
 
 // Reserved component names for internal metrics pipeline
 const (
-	reservedPrometheusReceiver            = "prometheus/dd-hp-internal"
-	reservedFilterProcessor               = "filter/dd-hp-drop-internal"
-	reservedCumulativeToDeltaProcessor    = "cumulativetodelta/dd-hp-internal"
-	internalHealthMetricsPipelineName     = "metrics/profiler-internal-health"
+	reservedPrometheusReceiver         = "prometheus/dd-hp-internal"
+	reservedFilterProcessor            = "filter/dd-hp-drop-internal"
+	reservedCumulativeToDeltaProcessor = "cumulativetodelta/dd-hp-internal"
+	internalHealthMetricsPipelineName  = "metrics/profiler-internal-health"
 )
 
 // Configuration paths used multiple times across converters
@@ -298,7 +298,7 @@ func inferMetricsEndpoint(profilesEndpoint string) (string, error) {
 
 // PrometheusReceiverConfig returns the default configuration for the internal prometheus receiver
 // that scrapes OTel collector's internal telemetry metrics.
-func PrometheusReceiverConfig() confMap {
+func PrometheusReceiverConfig() map[string]any {
 	return confMap{
 		"config": confMap{
 			"scrape_configs": []any{
@@ -322,14 +322,14 @@ func PrometheusReceiverConfig() confMap {
 
 // FilterProcessorConfig returns the default configuration for the filter processor
 // that drops internal prometheus scrape metrics from being exported.
-func FilterProcessorConfig() confMap {
+func FilterProcessorConfig() map[string]any {
 	return confMap{
 		"metrics": confMap{
 			"exclude": confMap{
 				"match_type": "regexp",
 				"metric_names": []any{
-					"^scrape_.*$",                          // Prometheus scraper timing metrics
-					"^up$",                                  // Scraper up/down status
+					"^scrape_.*$",                            // Prometheus scraper timing metrics
+					"^up$",                                   // Scraper up/down status
 					"^promhttp_metric_handler_errors_total$", // Prometheus HTTP handler errors
 				},
 			},
