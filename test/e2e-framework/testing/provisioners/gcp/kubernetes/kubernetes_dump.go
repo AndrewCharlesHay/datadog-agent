@@ -12,6 +12,9 @@ import (
 
 	gcpapi "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/compute/apiv1/computepb"
+	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/DataDog/datadog-agent/test/e2e-framework/testing/utils/infra"
 )
 
 func DumpOpenshiftClusterState(ctx context.Context, name string) (ret string, err error) {
@@ -56,6 +59,30 @@ func DumpOpenshiftClusterState(ctx context.Context, name string) (ret string, er
 	vmIP := networks[0].GetNetworkIP()
 
 	fmt.Fprintf(&out, "Found gcp vm running openshift: %s - IP: %s\n", vmName, vmIP)
+
+	sshClient, err := infra.SshConnectToInstance(vmIP, "22", "gce")
+	if err != nil {
+		fmt.Fprintf(&out, "failed to ssh to the VM %s can't reach for kube config file", vmName)
+		return
+	}
+	defer sshClient.Close()
+
+	sshOutput, err := infra.SshRunCommand(
+		sshClient,
+		"cat .kube/config",
+	)
+	if err != nil {
+		return "", err
+	}
+
+	kubeConfig, err := clientcmd.Load(sshOutput)
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Fprintf(&out, "Found kubeconfiguration:\n\n%s\n\n", string(sshOutput))
+
+	var _ = kubeConfig
 
 	return
 }
