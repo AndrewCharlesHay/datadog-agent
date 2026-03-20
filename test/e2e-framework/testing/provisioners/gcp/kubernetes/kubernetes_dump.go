@@ -8,6 +8,7 @@ package gcpkubernetes
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	gcpapi "cloud.google.com/go/compute/apiv1"
@@ -25,12 +26,14 @@ func DumpOpenshiftClusterState(ctx context.Context, name string) (ret string, er
 
 	fmt.Fprintf(&out, "stack name: '%s'\n", name)
 
+	ciPipelinID := os.Getenv("CI_PIPELINE_ID")
+
 	gcpClient, err := gcpapi.NewInstancesRESTClient(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to init GCP instance client: %w", err)
 	}
 
-	instanceFilter := "labels.managed-by=pulumi AND labels.stack=" + name
+	instanceFilter := "(labels.managed-by=pulumi) AND (labels.ci-pipeline-id=" + ciPipelinID + ")"
 	instanceIterator := gcpClient.List(ctx, &computepb.ListInstancesRequest{
 		Filter: &instanceFilter,
 	}).All()
@@ -39,7 +42,7 @@ func DumpOpenshiftClusterState(ctx context.Context, name string) (ret string, er
 	for instance := range instanceIterator {
 		fmt.Fprintf(&out, "instance: %+v\n", instance)
 
-		if !strings.Contains(instance.GetName(), "fakeint") {
+		if strings.Contains(instance.GetName(), "openshiftvm") {
 			openshiftInstance = instance
 		}
 	}
