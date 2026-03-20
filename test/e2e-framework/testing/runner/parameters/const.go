@@ -94,6 +94,8 @@ const (
 	CoverageOutDir StoreKey = "coverage_out_dir"
 	// SkipWindows skips Windows infrastructure and workloads in tests
 	SkipWindows StoreKey = "skip_windows"
+	// ImagePullRegistry is an optional pull-through cache registry prefix (comma-separated list, first entry used)
+	ImagePullRegistry StoreKey = "image_pull_registry"
 )
 
 const (
