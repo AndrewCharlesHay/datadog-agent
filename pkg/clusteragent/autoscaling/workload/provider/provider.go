@@ -113,7 +113,7 @@ func StartWorkloadAutoscaling(
 		},
 	)
 
-	autoscalerSyncer := profile.NewAutoscalerSyncer(profileStore, store, isLeaderFunc, profileController.HasSynced, workloadWatcher.HasSynced)
+	autoscalerSyncer := profile.NewAutoscalerSyncer(profileStore, store, isLeaderFunc, profileController.InitialSyncDone, workloadWatcher.HasSynced)
 	builtinManager := profile.NewBuiltinProfileManager(apiCl.DynamicInformerCl, isLeaderFunc)
 
 	// Start informers & controllers (informers can be started multiple times)
@@ -122,11 +122,11 @@ func StartWorkloadAutoscaling(
 
 	// TODO: Wait POD Watcher sync before running the controller
 	go builtinManager.Run(ctx)
-	go profileController.Run(ctx)
+	go profileController.Run(ctx, 1)
 	go workloadWatcher.Run(ctx)
 	go autoscalerSyncer.Run(ctx)
 	go podWatcher.Run(ctx)
-	go controller.Run(ctx)
+	go controller.Run(ctx, 1)
 
 	// Only start the local recommender if failover metrics collection is enabled
 	if pkgconfigsetup.Datadog().GetBool("autoscaling.failover.enabled") {
