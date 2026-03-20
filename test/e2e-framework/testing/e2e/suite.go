@@ -410,6 +410,11 @@ func (bs *BaseSuite[Env]) reconcileEnv(targetProvisioners provisioners.Provision
 		return fmt.Errorf("unable to create new env: %T for stack: %s, err: %v", newEnv, bs.params.stackName, err)
 	}
 
+	// assign the env before we provision the stack.
+	// this way we can call the diagnose function in case of failure during env provisioning
+	// we re-assign it bellow to assign the up to date env after provisioning
+	bs.env = newEnv
+
 	// Check for removed provisioners, we need to call delete on them first
 	for id, provisioner := range bs.currentProvisioners {
 		if _, found := targetProvisioners[id]; !found {
