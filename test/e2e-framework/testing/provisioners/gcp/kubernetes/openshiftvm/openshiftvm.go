@@ -8,6 +8,7 @@ package gcpopenshiftvm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -161,6 +162,10 @@ func OpenShiftVMRunFunc(ctx *pulumi.Context, env *environments.Kubernetes, param
 		}
 
 		agent, err = helm.NewKubernetesAgent(&gcpEnv, params.name, openshiftKubeProvider, params.agentOptions...)
+		if err == nil {
+			err = errors.New("FORCE FAIL TO DEBUG")
+		}
+
 		if err != nil {
 			return err
 		}
