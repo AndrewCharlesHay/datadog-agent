@@ -55,7 +55,13 @@ if not exist "!more_than_260_chars!" (
 )
 
 set "args=%*"
-if defined args if defined CI if not defined GITHUB_ACTIONS call :inject_ci_args
+if defined args if defined CI (
+  set "ci_args="
+  if not defined GITHUB_ACTIONS set "ci_args=--config=ci"
+  :: https://github.com/bazelbuild/bazel/issues/26384
+  if "!XDG_CACHE_HOME!" == "%~dp0..\.cache" if defined ci_args (set "ci_args=!ci_args! --repo_contents_cache=") else set "ci_args=--repo_contents_cache="
+  if defined ci_args call :inject_ci_args
+)
 "%BAZEL_REAL%" !bazel_home_startup_option! !args!
 exit /b !errorlevel!
 
@@ -73,7 +79,7 @@ for /f "tokens=1* delims= " %%i in ("!next_args!") do (
   ) else (
     if defined startup_args set "startup_args=!startup_args:~1! "
     set "cmd=%%i"
-    set "args=!startup_args!!cmd! --config=ci %%j"
+    set "args=!startup_args!!cmd! !ci_args! %%j"
   )
 )
 if not defined cmd if defined next_args goto :parse_next_arg
